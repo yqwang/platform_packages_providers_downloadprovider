@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package com.android.providers.downloads;
+package com.github.yqwang.android.downloads;
 
-import static android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED;
-import static android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_ONLY_COMPLETION;
+import static com.github.yqwang.android.downloads.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED;
+import static com.github.yqwang.android.downloads.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_ONLY_COMPLETION;
 
-import android.app.DownloadManager;
+import android.annotation.SuppressLint;
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.ContentUris;
@@ -32,12 +32,10 @@ import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.provider.Downloads;
 import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
 
-import com.google.common.annotations.VisibleForTesting;
 
 /**
  * Receives system broadcasts (boot, network connectivity)
@@ -53,15 +51,13 @@ public class DownloadReceiver extends BroadcastReceiver {
         sAsyncHandler = new Handler(thread.getLooper());
     }
 
-    @VisibleForTesting
     SystemFacade mSystemFacade = null;
 
-    @Override
+	@Override
     public void onReceive(final Context context, final Intent intent) {
         if (mSystemFacade == null) {
             mSystemFacade = new RealSystemFacade(context);
         }
-
         String action = intent.getAction();
         if (action.equals(Intent.ACTION_BOOT_COMPLETED)) {
             if (Constants.LOGVV) {
@@ -88,19 +84,23 @@ public class DownloadReceiver extends BroadcastReceiver {
                 || action.equals(Constants.ACTION_LIST)
                 || action.equals(Constants.ACTION_HIDE)) {
 
+        	if  (Integer.valueOf(android.os.Build.VERSION.SDK_INT) >= android.os.Build.VERSION_CODES.HONEYCOMB) {
             final PendingResult result = goAsync();
-            if (result == null) {
-                // TODO: remove this once test is refactored
-                handleNotificationBroadcast(context, intent);
-            } else {
-                sAsyncHandler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        handleNotificationBroadcast(context, intent);
-                        result.finish();
-                    }
-                });
-            }
+	            if (result == null) {
+	                // TODO: remove this once test is refactored
+	                handleNotificationBroadcast(context, intent);
+	            } else {
+	                sAsyncHandler.post(new Runnable() {
+	                    @Override
+	                    public void run() {
+	                        handleNotificationBroadcast(context, intent);
+	                        result.finish();
+	                    }
+	                });
+	            }
+        	} else {
+        		 handleNotificationBroadcast(context, intent);
+        	}
         }
     }
 
@@ -132,9 +132,8 @@ public class DownloadReceiver extends BroadcastReceiver {
     private void hideNotification(Context context, long id) {
         final int status;
         final int visibility;
-
         final Uri uri = ContentUris.withAppendedId(Downloads.Impl.ALL_DOWNLOADS_CONTENT_URI, id);
-        final Cursor cursor = context.getContentResolver().query(uri, null, null, null, null);
+        final Cursor cursor = DownloadProvider.getInstance(context).query(uri, null, null, null, null);
         try {
             if (cursor.moveToFirst()) {
                 status = getInt(cursor, Downloads.Impl.COLUMN_STATUS);
@@ -146,14 +145,13 @@ public class DownloadReceiver extends BroadcastReceiver {
         } finally {
             cursor.close();
         }
-
         if (Downloads.Impl.isStatusCompleted(status) &&
                 (visibility == VISIBILITY_VISIBLE_NOTIFY_COMPLETED
                 || visibility == VISIBILITY_VISIBLE_NOTIFY_ONLY_COMPLETION)) {
             final ContentValues values = new ContentValues();
             values.put(Downloads.Impl.COLUMN_VISIBILITY,
                     Downloads.Impl.VISIBILITY_VISIBLE);
-            context.getContentResolver().update(uri, values, null, null);
+            DownloadProvider.getInstance(context).update(uri, values, null, null);
         }
     }
 
@@ -167,7 +165,6 @@ public class DownloadReceiver extends BroadcastReceiver {
         try {
             context.startActivity(intent);
         } catch (ActivityNotFoundException ex) {
-            Log.d(Constants.TAG, "no activity for " + intent, ex);
             Toast.makeText(context, R.string.download_no_application_title, Toast.LENGTH_LONG)
                     .show();
         }
@@ -183,7 +180,7 @@ public class DownloadReceiver extends BroadcastReceiver {
 
         final Uri uri = ContentUris.withAppendedId(
                 Downloads.Impl.ALL_DOWNLOADS_CONTENT_URI, ids[0]);
-        final Cursor cursor = context.getContentResolver().query(uri, null, null, null, null);
+        final Cursor cursor = DownloadProvider.getInstance(context).query(uri, null, null, null, null);
         try {
             if (cursor.moveToFirst()) {
                 packageName = getString(cursor, Downloads.Impl.COLUMN_NOTIFICATION_PACKAGE);

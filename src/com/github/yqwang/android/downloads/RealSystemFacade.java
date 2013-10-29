@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-package com.android.providers.downloads;
+package com.github.yqwang.android.downloads;
 
+import android.annotation.SuppressLint;
 import android.app.DownloadManager;
 import android.content.Context;
 import android.content.Intent;
@@ -25,7 +26,7 @@ import android.net.NetworkInfo;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 
-class RealSystemFacade implements SystemFacade {
+public class RealSystemFacade implements SystemFacade {
     private Context mContext;
 
     public RealSystemFacade(Context context) {
@@ -46,7 +47,7 @@ class RealSystemFacade implements SystemFacade {
             return null;
         }
 
-        final NetworkInfo activeInfo = connectivity.getActiveNetworkInfoForUid(uid);
+        final NetworkInfo activeInfo = connectivity.getActiveNetworkInfo(); // getActiveNetworkInfoForUid(uid);
         if (activeInfo == null && Constants.LOGVV) {
             Log.v(Constants.TAG, "network is not available");
         }
@@ -55,8 +56,9 @@ class RealSystemFacade implements SystemFacade {
 
     @Override
     public boolean isActiveNetworkMetered() {
-        final ConnectivityManager conn = ConnectivityManager.from(mContext);
-        return conn.isActiveNetworkMetered();
+        /*final ConnectivityManager conn = ConnectivityManager.from(mContext);
+        return conn.isActiveNetworkMetered();*/
+    	return true; // TODO
     }
 
     @Override
@@ -70,19 +72,21 @@ class RealSystemFacade implements SystemFacade {
 
         NetworkInfo info = connectivity.getActiveNetworkInfo();
         boolean isMobile = (info != null && info.getType() == ConnectivityManager.TYPE_MOBILE);
-        boolean isRoaming = isMobile && TelephonyManager.getDefault().isNetworkRoaming();
+        boolean isRoaming = isMobile /*&& TelephonyManager.getDefault().isNetworkRoaming()*/;
         if (Constants.LOGVV && isRoaming) {
             Log.v(Constants.TAG, "network is roaming");
         }
         return isRoaming;
     }
 
-    @Override
+    @SuppressLint("NewApi")
+	@Override
     public Long getMaxBytesOverMobile() {
         return DownloadManager.getMaxBytesOverMobile(mContext);
     }
 
-    @Override
+    @SuppressLint("NewApi")
+	@Override
     public Long getRecommendedMaxBytesOverMobile() {
         return DownloadManager.getRecommendedMaxBytesOverMobile(mContext);
     }

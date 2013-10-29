@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package com.android.providers.downloads;
+package com.github.yqwang.android.downloads;
 
-import static com.android.providers.downloads.Constants.LOGV;
-import static com.android.providers.downloads.Constants.TAG;
+import static com.github.yqwang.android.downloads.Constants.LOGV;
+import static com.github.yqwang.android.downloads.Constants.TAG;
 
 import android.content.ContentUris;
 import android.content.Context;
@@ -27,20 +27,16 @@ import android.database.sqlite.SQLiteException;
 import android.net.Uri;
 import android.os.Environment;
 import android.os.StatFs;
-import android.provider.Downloads;
 import android.text.TextUtils;
 import android.util.Log;
 
-import com.android.internal.R;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import libcore.io.ErrnoException;
-import libcore.io.Libcore;
-import libcore.io.StructStat;
+import com.github.yqwang.android.downloads.util.CommonConfig;
 
 /**
  * Manages the storage space consumed by Downloads Data dir. When space falls below
@@ -49,16 +45,31 @@ import libcore.io.StructStat;
  */
 class StorageManager {
     /** the max amount of space allowed to be taken up by the downloads data dir */
-    private static final long sMaxdownloadDataDirSize =
-            Resources.getSystem().getInteger(R.integer.config_downloadDataDirSize) * 1024 * 1024;
+    
+	/**
+	 *   android-cts-4.0.3_r2
+	 *   <!-- Max space (in MB) allocated to DownloadManager to store the downloaded files
+     *   if they are to be stored in DownloadManager's data dir,
+     *   which typically is /data/data/com.android.providers.downloads/files. -->
+     *   <integer name="config_downloadDataDirSize">200</integer>
+	 */
+	private static final long sMaxdownloadDataDirSize = CommonConfig.config_downloadDataDirSize * 1024 * 1024;
 
     /** threshold (in bytes) beyond which the low space warning kicks in and attempt is made to
      * purge some downloaded files to make space
      */
+	/**
+	 *   android-cts-4.0.3_r2
+	 *     <!-- When the free space available in DownloadManager's data dir falls
+     *   below the percentage value specified by this param, DownloadManager
+     *   starts removing files to try to make percentage of available
+     *   free space above this threshold value. --> 
+     *   <integer name="config_downloadDataDirLowSpaceThreshold">10</integer>
+	 */
     private static final long sDownloadDataDirLowSpaceThreshold =
-            Resources.getSystem().getInteger(
-                    R.integer.config_downloadDataDirLowSpaceThreshold)
+            		CommonConfig.config_downloadDataDirLowSpaceThreshold
                     * sMaxdownloadDataDirSize / 100;
+
 
     /** see {@link Environment#getExternalStorageDirectory()} */
     private final File mExternalStorageDir;
@@ -310,7 +321,7 @@ class StorageManager {
                 String.valueOf(destination) :
                 String.valueOf(Downloads.Impl.DESTINATION_CACHE_PARTITION_PURGEABLE);
         String[] bindArgs = new String[]{destStr};
-        Cursor cursor = mContext.getContentResolver().query(
+        Cursor cursor = DownloadProvider.getInstance(mContext).query(
                 Downloads.Impl.ALL_DOWNLOADS_CONTENT_URI,
                 null,
                 "( " +
@@ -336,7 +347,7 @@ class StorageManager {
                 totalFreed += file.length();
                 file.delete();
                 long id = cursor.getLong(cursor.getColumnIndex(Downloads.Impl._ID));
-                mContext.getContentResolver().delete(
+                DownloadProvider.getInstance(mContext).delete(
                         ContentUris.withAppendedId(Downloads.Impl.ALL_DOWNLOADS_CONTENT_URI, id),
                         null, null);
             }
@@ -374,7 +385,7 @@ class StorageManager {
         if (files.size() == 0) {
             return;
         }
-        Cursor cursor = mContext.getContentResolver().query(
+        Cursor cursor = DownloadProvider.getInstance(mContext).query(
                 Downloads.Impl.ALL_DOWNLOADS_CONTENT_URI,
                 new String[] { Downloads.Impl._DATA }, null, null, null);
         try {
@@ -397,8 +408,8 @@ class StorageManager {
         }
 
         // delete files owned by us, but that don't appear in our database
-        final int myUid = android.os.Process.myUid();
-        for (File file : files) {
+        // final int myUid = android.os.Process.myUid();
+        /*for (File file : files) {
             final String path = file.getAbsolutePath();
             try {
                 final StructStat stat = Libcore.os.stat(path);
@@ -411,7 +422,7 @@ class StorageManager {
             } catch (ErrnoException e) {
                 Log.w(TAG, "stat(" + path + ") result: " + e);
             }
-        }
+        }*/
     }
 
     /**
@@ -425,7 +436,7 @@ class StorageManager {
         }
         Cursor cursor = null;
         try {
-            cursor = mContext.getContentResolver().query(Downloads.Impl.ALL_DOWNLOADS_CONTENT_URI,
+            cursor = DownloadProvider.getInstance(mContext).query(Downloads.Impl.ALL_DOWNLOADS_CONTENT_URI,
                     new String[] { Downloads.Impl._ID },
                     Downloads.Impl.COLUMN_STATUS + " >= '200'", null,
                     Downloads.Impl.COLUMN_LAST_MODIFICATION);
@@ -441,7 +452,7 @@ class StorageManager {
                 while (numDelete > 0) {
                     Uri downloadUri = ContentUris.withAppendedId(
                             Downloads.Impl.ALL_DOWNLOADS_CONTENT_URI, cursor.getLong(columnId));
-                    mContext.getContentResolver().delete(downloadUri, null, null);
+                    DownloadProvider.getInstance(mContext).delete(downloadUri, null, null);
                     if (!cursor.moveToNext()) {
                         break;
                     }

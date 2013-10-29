@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.providers.downloads"
+        package="com.github.yqwang.android.downloads"
         android:sharedUserId="android.media">
 
     <!-- Allows access to the Download Manager -->
@@ -57,29 +57,13 @@
 
     <application android:process="android.process.media"
                  android:label="@string/app_label">
-
-        <provider android:name=".DownloadProvider"
-                  android:authorities="downloads" android:exported="true">
-          <!-- Anyone can access /my_downloads, the provider internally restricts access by UID for
-               these URIs -->
-          <path-permission android:pathPrefix="/my_downloads"
-                           android:permission="android.permission.INTERNET"/>
-          <!-- to access /all_downloads, ACCESS_ALL_DOWNLOADS permission is required -->
-          <path-permission android:pathPrefix="/all_downloads"
-                           android:permission="android.permission.ACCESS_ALL_DOWNLOADS"/>
-          <!-- Temporary, for backwards compatibility -->
-          <path-permission android:pathPrefix="/download"
-                           android:permission="android.permission.INTERNET"/>
-          <!-- Apps with access to /all_downloads/... can grant permissions, allowing them to share
-               downloaded files with other viewers -->
-          <grant-uri-permission android:pathPrefix="/all_downloads/"/>
-          <!-- Apps with access to /my_downloads/... can grant permissions, allowing them to share
-               downloaded files with other viewers -->
-          <grant-uri-permission android:pathPrefix="/my_downloads/"/>
-        </provider>
-        <service android:name=".DownloadService"
+		<uses-sdk
+	        android:minSdkVersion="9"
+	        android:targetSdkVersion="18" />
+        <service android:name="com.github.yqwang.android.downloads.DownloadService"
                 android:permission="android.permission.ACCESS_DOWNLOAD_MANAGER" />
-        <receiver android:name=".DownloadReceiver" android:exported="false">
+        <receiver android:name="com.github.yqwang.android.downloads.DownloadReceiver"
+            android:exported="false" >
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.net.conn.CONNECTIVITY_CHANGE" />
@@ -89,9 +73,5 @@
                 <data android:scheme="file" />
             </intent-filter>
         </receiver>
-
-        <activity android:name=".SizeLimitActivity"
-                  android:launchMode="singleTask"
-                  android:theme="@style/Theme.Translucent"/>
     </application>
 </manifest>

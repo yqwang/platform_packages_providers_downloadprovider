@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-package com.android.providers.downloads;
+package com.github.yqwang.android.downloads;
 
-import android.app.DownloadManager;
-import android.content.ContentResolver;
+import android.annotation.SuppressLint;
 import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Context;
@@ -28,13 +27,14 @@ import android.net.NetworkInfo;
 import android.net.NetworkInfo.DetailedState;
 import android.net.Uri;
 import android.os.Environment;
-import android.provider.Downloads;
-import android.provider.Downloads.Impl;
 import android.text.TextUtils;
+import android.util.Log;
 import android.util.Pair;
 
-import com.android.internal.annotations.GuardedBy;
-import com.android.internal.util.IndentingPrintWriter;
+import com.github.yqwang.android.downloads.DownloadManager.Request;
+import com.github.yqwang.android.downloads.Downloads.Impl;
+import com.github.yqwang.android.downloads.util.GuardedBy;
+import com.github.yqwang.android.downloads.util.IndentingPrintWriter;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -52,11 +52,11 @@ public class DownloadInfo {
     // periodically pushing to provider.
 
     public static class Reader {
-        private ContentResolver mResolver;
+        private DownloadProvider mResolver;
         private Cursor mCursor;
 
-        public Reader(ContentResolver resolver, Cursor cursor) {
-            mResolver = resolver;
+        public Reader(Context context, Cursor cursor) {
+        	mResolver = DownloadProvider.getInstance(context);
             mCursor = cursor;
         }
 
@@ -325,7 +325,8 @@ public class DownloadInfo {
             case Downloads.Impl.STATUS_PENDING: // download is explicit marked as ready to start
             case Downloads.Impl.STATUS_RUNNING: // download interrupted (process killed etc) while
                                                 // running, without a chance to update the database
-                return true;
+            case Downloads.Impl.STATUS_PAUSED_BY_APP:
+            	return true;
 
             case Downloads.Impl.STATUS_WAITING_FOR_NETWORK:
             case Downloads.Impl.STATUS_QUEUED_FOR_WIFI:
@@ -362,7 +363,8 @@ public class DownloadInfo {
     /**
      * Returns whether this download is allowed to use the network.
      */
-    public NetworkState checkCanUseNetwork() {
+    @SuppressLint("NewApi")
+	public NetworkState checkCanUseNetwork() {
         final NetworkInfo info = mSystemFacade.getActiveNetworkInfo(mUid);
         if (info == null || !info.isConnected()) {
             return NetworkState.NO_CONNECTION;
@@ -410,13 +412,13 @@ public class DownloadInfo {
     private int translateNetworkTypeToApiFlag(int networkType) {
         switch (networkType) {
             case ConnectivityManager.TYPE_MOBILE:
-                return DownloadManager.Request.NETWORK_MOBILE;
+                return Request.NETWORK_MOBILE;
 
             case ConnectivityManager.TYPE_WIFI:
-                return DownloadManager.Request.NETWORK_WIFI;
+                return Request.NETWORK_WIFI;
 
             case ConnectivityManager.TYPE_BLUETOOTH:
-                return DownloadManager.Request.NETWORK_BLUETOOTH;
+                return Request.NETWORK_BLUETOOTH;
 
             default:
                 return 0;
@@ -464,9 +466,8 @@ public class DownloadInfo {
                     mStatus = Impl.STATUS_RUNNING;
                     ContentValues values = new ContentValues();
                     values.put(Impl.COLUMN_STATUS, mStatus);
-                    mContext.getContentResolver().update(getAllDownloadsUri(), values, null, null);
+                    DownloadProvider.getInstance(mContext).update(getAllDownloadsUri(), values, null, null);
                 }
-
                 mTask = new DownloadThread(
                         mContext, mSystemFacade, this, mStorageManager, mNotifier);
                 mSubmittedTask = executor.submit(mTask);
@@ -580,21 +581,12 @@ public class DownloadInfo {
                 && Downloads.Impl.isStatusSuccess(mStatus);
     }
 
-    void notifyPauseDueToSize(boolean isWifiRequired) {
-        Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.setData(getAllDownloadsUri());
-        intent.setClassName(SizeLimitActivity.class.getPackage().getName(),
-                SizeLimitActivity.class.getName());
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        intent.putExtra(EXTRA_IS_WIFI_REQUIRED, isWifiRequired);
-        mContext.startActivity(intent);
-    }
 
     /**
      * Query and return status of requested download.
      */
-    public static int queryDownloadStatus(ContentResolver resolver, long id) {
-        final Cursor cursor = resolver.query(
+    public static int queryDownloadStatus(DownloadProvider infoDb, long id) {
+        final Cursor cursor = infoDb.query(
                 ContentUris.withAppendedId(Downloads.Impl.ALL_DOWNLOADS_CONTENT_URI, id),
                 new String[] { Downloads.Impl.COLUMN_STATUS }, null, null, null);
         try {

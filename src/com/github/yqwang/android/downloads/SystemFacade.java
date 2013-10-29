@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.providers.downloads;
+package com.github.yqwang.android.downloads;
 
 import android.content.Intent;
 import android.content.pm.PackageManager.NameNotFoundException;

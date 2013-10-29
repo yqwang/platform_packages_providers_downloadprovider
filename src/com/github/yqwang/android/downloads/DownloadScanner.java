@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-package com.android.providers.downloads;
+package com.github.yqwang.android.downloads;
 
 import static android.text.format.DateUtils.MINUTE_IN_MILLIS;
-import static com.android.providers.downloads.Constants.LOGV;
-import static com.android.providers.downloads.Constants.TAG;
+import static com.github.yqwang.android.downloads.Constants.LOGV;
+import static com.github.yqwang.android.downloads.Constants.TAG;
 
-import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Context;
@@ -28,12 +27,11 @@ import android.media.MediaScannerConnection;
 import android.media.MediaScannerConnection.MediaScannerConnectionClient;
 import android.net.Uri;
 import android.os.SystemClock;
-import android.provider.Downloads;
 import android.util.Log;
 
-import com.android.internal.annotations.GuardedBy;
-import com.google.common.collect.Maps;
+import com.github.yqwang.android.downloads.util.GuardedBy;
 
+import com.google.common.collect.Maps;
 import java.util.HashMap;
 
 /**
@@ -144,14 +142,14 @@ public class DownloadScanner implements MediaScannerConnectionClient {
             values.put(Downloads.Impl.COLUMN_MEDIAPROVIDER_URI, uri.toString());
         }
 
-        final ContentResolver resolver = mContext.getContentResolver();
+        final DownloadProvider infoDb = DownloadProvider.getInstance(mContext);
         final Uri downloadUri = ContentUris.withAppendedId(
                 Downloads.Impl.ALL_DOWNLOADS_CONTENT_URI, req.id);
-        final int rows = resolver.update(downloadUri, values, null, null);
+        final int rows = infoDb.update(downloadUri, values, null, null);
         if (rows == 0) {
             // Local row disappeared during scan; download was probably deleted
             // so clean up now-orphaned media entry.
-            resolver.delete(uri, null, null);
+        	infoDb.delete(uri, null, null);
         }
     }
 }

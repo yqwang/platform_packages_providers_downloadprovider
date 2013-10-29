@@ -14,20 +14,17 @@
  * limitations under the License.
  */
 
-package com.android.providers.downloads;
+package com.github.yqwang.android.downloads;
 
 import static android.text.format.DateUtils.MINUTE_IN_MILLIS;
-import static com.android.providers.downloads.Constants.TAG;
+import static com.github.yqwang.android.downloads.Constants.TAG;
 
 import android.app.AlarmManager;
 import android.app.DownloadManager;
 import android.app.PendingIntent;
 import android.app.Service;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.res.Resources;
-import android.database.ContentObserver;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Handler;
@@ -35,15 +32,15 @@ import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.Process;
-import android.provider.Downloads;
 import android.text.TextUtils;
 import android.util.Log;
 
-import com.android.internal.annotations.GuardedBy;
-import com.android.internal.util.IndentingPrintWriter;
-import com.google.android.collect.Maps;
+import com.github.yqwang.android.downloads.util.CommonConfig;
+import com.github.yqwang.android.downloads.util.GuardedBy;
+import com.github.yqwang.android.downloads.util.IndentingPrintWriter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 import java.io.File;
@@ -80,9 +77,6 @@ public class DownloadService extends Service {
     private AlarmManager mAlarmManager;
     private StorageManager mStorageManager;
 
-    /** Observer to get notified when the content observer's data changes */
-    private DownloadManagerContentObserver mObserver;
-
     /** Class to handle Notification Manager updates */
     private DownloadNotifier mNotifier;
 
@@ -98,8 +92,7 @@ public class DownloadService extends Service {
     private final ExecutorService mExecutor = buildDownloadExecutor();
 
     private static ExecutorService buildDownloadExecutor() {
-        final int maxConcurrent = Resources.getSystem().getInteger(
-                com.android.internal.R.integer.config_MaxConcurrentDownloadsAllowed);
+        final int maxConcurrent = CommonConfig.config_MaxConcurrentDownloadsAllowed; // modify
 
         // Create a bounded thread pool for executing downloads; it creates
         // threads as needed (up to maximum) and reclaims them when finished.
@@ -117,19 +110,6 @@ public class DownloadService extends Service {
 
     private volatile int mLastStartId;
 
-    /**
-     * Receives notifications when the data in the content provider changes
-     */
-    private class DownloadManagerContentObserver extends ContentObserver {
-        public DownloadManagerContentObserver() {
-            super(new Handler());
-        }
-
-        @Override
-        public void onChange(final boolean selfChange) {
-            enqueueUpdate();
-        }
-    }
 
     /**
      * Returns an IBinder instance when someone wants to connect to this
@@ -167,17 +147,13 @@ public class DownloadService extends Service {
 
         mNotifier = new DownloadNotifier(this);
         mNotifier.cancelAll();
-
-        mObserver = new DownloadManagerContentObserver();
-        getContentResolver().registerContentObserver(Downloads.Impl.ALL_DOWNLOADS_CONTENT_URI,
-                true, mObserver);
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         int returnValue = super.onStartCommand(intent, flags, startId);
         if (Constants.LOGVV) {
-            Log.v(Constants.TAG, "Service onStart");
+        	Log.v(Constants.TAG, "Service onStart");
         }
         mLastStartId = startId;
         enqueueUpdate();
@@ -186,7 +162,6 @@ public class DownloadService extends Service {
 
     @Override
     public void onDestroy() {
-        getContentResolver().unregisterContentObserver(mObserver);
         mScanner.shutdown();
         mUpdateThread.quit();
         if (Constants.LOGVV) {
@@ -268,7 +243,6 @@ public class DownloadService extends Service {
 
                 if (stopSelfResult(startId)) {
                     if (DEBUG_LIFECYCLE) Log.v(TAG, "Nothing left; stopped");
-                    getContentResolver().unregisterContentObserver(mObserver);
                     mScanner.shutdown();
                     mUpdateThread.quit();
                 }
@@ -298,16 +272,15 @@ public class DownloadService extends Service {
 
         final Set<Long> staleIds = Sets.newHashSet(mDownloads.keySet());
 
-        final ContentResolver resolver = getContentResolver();
-        final Cursor cursor = resolver.query(Downloads.Impl.ALL_DOWNLOADS_CONTENT_URI,
+        final DownloadProvider mResolver = DownloadProvider.getInstance(this);
+        final Cursor cursor = mResolver.query(Downloads.Impl.ALL_DOWNLOADS_CONTENT_URI,
                 null, null, null, null);
         try {
-            final DownloadInfo.Reader reader = new DownloadInfo.Reader(resolver, cursor);
+            final DownloadInfo.Reader reader = new DownloadInfo.Reader(this, cursor);
             final int idColumn = cursor.getColumnIndexOrThrow(Downloads.Impl._ID);
             while (cursor.moveToNext()) {
                 final long id = cursor.getLong(idColumn);
                 staleIds.remove(id);
-
                 DownloadInfo info = mDownloads.get(id);
                 if (info != null) {
                     updateDownload(reader, info, now);
@@ -318,26 +291,17 @@ public class DownloadService extends Service {
                 if (info.mDeleted) {
                     // Delete download if requested, but only after cleaning up
                     if (!TextUtils.isEmpty(info.mMediaProviderUri)) {
-                        resolver.delete(Uri.parse(info.mMediaProviderUri), null, null);
+                    	mResolver.delete(Uri.parse(info.mMediaProviderUri), null, null);
                     }
 
                     deleteFileIfExists(info.mFileName);
-                    resolver.delete(info.getAllDownloadsUri(), null, null);
+                    mResolver.delete(info.getAllDownloadsUri(), null, null);
 
                 } else {
                     // Kick off download task if ready
                     final boolean activeDownload = info.startDownloadIfReady(mExecutor);
 
-                    // Kick off media scan if completed
-                    final boolean activeScan = info.startScanIfReady(mScanner);
-
-                    if (DEBUG_LIFECYCLE && (activeDownload || activeScan)) {
-                        Log.v(TAG, "Download " + info.mId + ": activeDownload=" + activeDownload
-                                + ", activeScan=" + activeScan);
-                    }
-
                     isActive |= activeDownload;
-                    isActive |= activeScan;
                 }
 
                 // Keep track of nearest next action
@@ -351,7 +315,6 @@ public class DownloadService extends Service {
         for (Long id : staleIds) {
             deleteDownloadLocked(id);
         }
-
         // Update notifications visible to user
         mNotifier.updateWith(mDownloads.values());
 

@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.android.providers.downloads;
+package com.github.yqwang.android.downloads;
 
-import static android.provider.Downloads.Impl.STATUS_UNHANDLED_HTTP_CODE;
-import static android.provider.Downloads.Impl.STATUS_UNHANDLED_REDIRECT;
+import static com.github.yqwang.android.downloads.Downloads.Impl.STATUS_UNHANDLED_HTTP_CODE;
+import static com.github.yqwang.android.downloads.Downloads.Impl.STATUS_UNHANDLED_REDIRECT;
 
 /**
  * Raised to indicate that the current request should be stopped immediately.

@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-package com.android.providers.downloads;
+package com.github.yqwang.android.downloads;
 
 import android.content.Context;
 import android.net.Uri;
 import android.os.Environment;
 import android.os.SystemClock;
-import android.provider.Downloads;
 import android.util.Log;
 import android.webkit.MimeTypeMap;
 

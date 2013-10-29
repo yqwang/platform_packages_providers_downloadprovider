@@ -15,7 +15,7 @@
  *
  */
 
-package com.android.providers.downloads;
+package com.github.yqwang.android.downloads;
 
 import android.content.Context;
 import android.drm.DrmManagerClient;

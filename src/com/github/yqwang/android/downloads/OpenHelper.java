@@ -14,23 +14,21 @@
  * limitations under the License.
  */
 
-package com.android.providers.downloads;
+package com.github.yqwang.android.downloads;
 
-import static android.app.DownloadManager.COLUMN_LOCAL_FILENAME;
-import static android.app.DownloadManager.COLUMN_LOCAL_URI;
-import static android.app.DownloadManager.COLUMN_MEDIA_TYPE;
-import static android.app.DownloadManager.COLUMN_URI;
-import static android.provider.Downloads.Impl.ALL_DOWNLOADS_CONTENT_URI;
-
-import android.app.DownloadManager;
 import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
-import android.provider.Downloads.Impl.RequestHeaders;
+import android.util.Log;
 
 import java.io.File;
+
+import com.github.yqwang.android.downloads.Downloads.Impl.RequestHeaders;
+
+import static com.github.yqwang.android.downloads.Downloads.Impl.*;
+import static com.github.yqwang.android.downloads.DownloadManager.*;
 
 public class OpenHelper {
     /**
@@ -38,8 +36,7 @@ public class OpenHelper {
      * position, handling subtleties around installing packages.
      */
     public static Intent buildViewIntent(Context context, long id) {
-        final DownloadManager downManager = (DownloadManager) context.getSystemService(
-                Context.DOWNLOAD_SERVICE);
+        final DownloadManager downManager = new DownloadManager(context, null);
         downManager.setAccessAllDownloads(true);
 
         final Cursor cursor = downManager.query(new DownloadManager.Query().setFilterById(id));
@@ -52,19 +49,20 @@ public class OpenHelper {
             final File file = getCursorFile(cursor, COLUMN_LOCAL_FILENAME);
             String mimeType = getCursorString(cursor, COLUMN_MEDIA_TYPE);
             mimeType = DownloadDrmHelper.getOriginalMimeType(context, file, mimeType);
-
+            Log.d("OpenHelper", "mimeType: " + mimeType.toString());
             final Intent intent = new Intent(Intent.ACTION_VIEW);
             intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
             if ("application/vnd.android.package-archive".equals(mimeType)) {
                 // PackageInstaller doesn't like content URIs, so open file
+            	Log.d("OpenHelper", "application/vnd.android.package-archive");
                 intent.setDataAndType(localUri, mimeType);
 
                 // Also splice in details about where it came from
-                final Uri remoteUri = getCursorUri(cursor, COLUMN_URI);
+                final Uri remoteUri = getCursorUri(cursor, Downloads.Impl.COLUMN_URI);
                 intent.putExtra(Intent.EXTRA_ORIGINATING_URI, remoteUri);
                 intent.putExtra(Intent.EXTRA_REFERRER, getRefererUri(context, id));
-                intent.putExtra(Intent.EXTRA_ORIGINATING_UID, getOriginatingUid(context, id));
+                // intent.putExtra(Intent.EXTRA_ORIGINATING_UID, getOriginatingUid(context, id));
             } else if ("file".equals(localUri.getScheme())) {
                 intent.setDataAndType(
                         ContentUris.withAppendedId(ALL_DOWNLOADS_CONTENT_URI, id), mimeType);
@@ -82,7 +80,7 @@ public class OpenHelper {
         final Uri headersUri = Uri.withAppendedPath(
                 ContentUris.withAppendedId(ALL_DOWNLOADS_CONTENT_URI, id),
                 RequestHeaders.URI_SEGMENT);
-        final Cursor headers = context.getContentResolver()
+        final Cursor headers = DownloadProvider.getInstance(context)
                 .query(headersUri, null, null, null, null);
         try {
             while (headers.moveToNext()) {
@@ -99,7 +97,7 @@ public class OpenHelper {
 
     private static int getOriginatingUid(Context context, long id) {
         final Uri uri = ContentUris.withAppendedId(ALL_DOWNLOADS_CONTENT_URI, id);
-        final Cursor cursor = context.getContentResolver().query(uri, new String[]{Constants.UID},
+        final Cursor cursor = DownloadProvider.getInstance(context).query(uri, new String[]{Constants.UID},
                 null, null, null);
         if (cursor != null) {
             try {
