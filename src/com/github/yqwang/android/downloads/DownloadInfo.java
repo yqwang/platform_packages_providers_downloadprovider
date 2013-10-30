@@ -363,15 +363,14 @@ public class DownloadInfo {
     /**
      * Returns whether this download is allowed to use the network.
      */
-    @SuppressLint("NewApi")
 	public NetworkState checkCanUseNetwork() {
         final NetworkInfo info = mSystemFacade.getActiveNetworkInfo(mUid);
         if (info == null || !info.isConnected()) {
             return NetworkState.NO_CONNECTION;
         }
-        if (DetailedState.BLOCKED.equals(info.getDetailedState())) {
-            return NetworkState.BLOCKED;
-        }
+//        if (DetailedState.BLOCKED.equals(info.getDetailedState())) {
+//            return NetworkState.BLOCKED;
+//        }
         if (mSystemFacade.isNetworkRoaming() && !isRoamingAllowed()) {
             return NetworkState.CANNOT_USE_ROAMING;
         }

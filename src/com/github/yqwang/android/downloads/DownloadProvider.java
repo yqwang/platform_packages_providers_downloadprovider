@@ -489,7 +489,6 @@ public class DownloadProvider {
 
 		// note we disallow inserting into ALL_DOWNLOADS
 		int match = sURIMatcher.match(uri);
-		Log.d(Constants.TAG, "match: " + match + " MY_DOWNLOADS: " + MY_DOWNLOADS);
 		if (match != MY_DOWNLOADS) {
 			Log.d(Constants.TAG, "calling insert on an unknown/invalid URI: "
 					+ uri);

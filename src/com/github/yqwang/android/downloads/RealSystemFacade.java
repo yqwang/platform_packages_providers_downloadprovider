@@ -17,13 +17,11 @@
 package com.github.yqwang.android.downloads;
 
 import android.annotation.SuppressLint;
-import android.app.DownloadManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
-import android.telephony.TelephonyManager;
 import android.util.Log;
 
 public class RealSystemFacade implements SystemFacade {
@@ -79,13 +77,11 @@ public class RealSystemFacade implements SystemFacade {
         return isRoaming;
     }
 
-    @SuppressLint("NewApi")
 	@Override
     public Long getMaxBytesOverMobile() {
         return DownloadManager.getMaxBytesOverMobile(mContext);
     }
 
-    @SuppressLint("NewApi")
 	@Override
     public Long getRecommendedMaxBytesOverMobile() {
         return DownloadManager.getRecommendedMaxBytesOverMobile(mContext);

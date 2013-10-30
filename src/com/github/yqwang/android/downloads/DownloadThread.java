@@ -64,7 +64,6 @@ import java.net.URLConnection;
  * Task which executes a given {@link DownloadInfo}: making network requests,
  * persisting data to disk, and updating {@link DownloadProvider}.
  */
-@SuppressLint("NewApi")
 public class DownloadThread implements Runnable {
 
     // TODO: bind each download to a specific network interface to avoid state
@@ -137,7 +136,8 @@ public class DownloadThread implements Runnable {
         public URL mUrl;
 
         public State(DownloadInfo info) {
-            mMimeType = Intent.normalizeMimeType(info.mMimeType);
+//            mMimeType = Intent.normalizeMimeType(info.mMimeType);
+        	mMimeType = info.mMimeType;
             mRequestUri = info.mUri;
             mFilename = info.mFileName;
             mTotalBytes = info.mTotalBytes;
@@ -658,7 +658,7 @@ public class DownloadThread implements Runnable {
         state.mContentLocation = conn.getHeaderField("Content-Location");
 
         if (state.mMimeType == null) {
-            state.mMimeType = Intent.normalizeMimeType(conn.getContentType());
+            state.mMimeType = conn.getContentType();//Intent.normalizeMimeType(conn.getContentType());
         }
 
         state.mHeaderETag = conn.getHeaderField("ETag");
